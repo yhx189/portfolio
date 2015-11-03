@@ -1,0 +1,82 @@
+PopulationSize            = 100
+NumberOfGenerations       = 20
+CrossoverProbability      = 95
+CreationProbability       = 2
+CreationType              = Ramped Half and Half
+MaximumDepthForCreation   = 6
+MaximumDepthForCrossover  = 17
+SelectionType             = Tournament selection
+TournamentSize            = 10
+DemeticGrouping           = Off
+DemeSize                  = 100
+DemeticMigProbability     = 100
+SwapMutationProbability   = 0
+ShrinkMutationProbability = 0
+AddBestToNewPopulation    = 1
+SteadyState               = 1
+
+GP tree 0: x(1) +(2) -(2) *(2) /(2) max(2) min(2) if(4) pow(2) exp(1) ln(1) nop(1) n 2 1 0
+
+Best of generation 0 (Fitness = 1.05981, Structural Complexity = 2)
+GP: (x 0)
+
+Best of generation 1 (Fitness = 1.05981, Structural Complexity = 2)
+GP: (x 0)
+
+Best of generation 2 (Fitness = 1.05981, Structural Complexity = 2)
+GP: (x 0)
+
+Best of generation 3 (Fitness = 1.05981, Structural Complexity = 2)
+GP: (x 0)
+
+Best of generation 4 (Fitness = 1.05981, Structural Complexity = 2)
+GP: (x 0)
+
+Best of generation 5 (Fitness = 1.05981, Structural Complexity = 7)
+GP: (x (ln (* (max 2 0) 0)))
+
+Best of generation 6 (Fitness = 1.05981, Structural Complexity = 7)
+GP: (x (ln (* (max 2 0) 0)))
+
+Best of generation 7 (Fitness = 1.05981, Structural Complexity = 3)
+GP: (x (nop 0))
+
+Best of generation 8 (Fitness = 1.05981, Structural Complexity = 9)
+GP: (x (/ (* 1 0) (ln (ln (exp 2)))))
+
+Best of generation 9 (Fitness = 1.05981, Structural Complexity = 8)
+GP: (x (/ (* 1 0) (/ n n)))
+
+Best of generation 10 (Fitness = 1.05981, Structural Complexity = 8)
+GP: (x (/ (* 1 0) (/ n n)))
+
+Best of generation 11 (Fitness = 1.05981, Structural Complexity = 13)
+GP: (if (exp 2) (ln (ln (exp 2))) (exp (ln (ln 2))) (x 0))
+
+Best of generation 12 (Fitness = 1.05981, Structural Complexity = 3)
+GP: (x (ln 2))
+
+Best of generation 13 (Fitness = 1.05981, Structural Complexity = 15)
+GP: (if (+ (ln 1) (x 0)) (/ n n) (exp (x (ln n))) (x 0))
+
+Best of generation 14 (Fitness = 1.05981, Structural Complexity = 2)
+GP: (x 0)
+
+Best of generation 15 (Fitness = 1.05981, Structural Complexity = 3)
+GP: (x (ln 2))
+
+Best of generation 16 (Fitness = 1.05981, Structural Complexity = 13)
+GP: (if (pow n n) (/ n n) (exp (x (ln n))) (x 0))
+
+Best of generation 17 (Fitness = 1.05981, Structural Complexity = 13)
+GP: (if (pow n n) (/ n n) (exp (x (ln n))) (x 0))
+
+Best of generation 18 (Fitness = 1.05981, Structural Complexity = 13)
+GP: (if (ln (exp 2)) (/ n n) (exp (x (ln n))) (x 0))
+
+Best of generation 19 (Fitness = 1.05981, Structural Complexity = 14)
+GP: (if (x (if n 2 0 2)) (nop 0) (exp (exp 2)) (x 0))
+
+Best of generation 20 (Fitness = 1.05981, Structural Complexity = 20)
+GP: (if (x (if n 2 0 2)) (nop 0) (x (nop (/ (* 1 0) (pow 2 1)))) (x 0))
+
