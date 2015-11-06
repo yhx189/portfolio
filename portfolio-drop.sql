@@ -6,21 +6,18 @@
 -- This code drops the student *part* of the Red, White, 
 -- and Blue data schema.  
 
-delete from pf_permissions;
 delete from pf_users;
-delete from pf_actions;
-delete from pf_opinions;
-delete from pf_cs_ind_to_geo;
+delete from portfolios;
+delete from shares;
+delete from newStockData;
+delete from predictedStockData;
 
 commit;
 
-drop table pf_cs_ind_to_geo;
-drop table pf_opinions;
-drop table pf_permissions;
-drop table pf_actions;
+drop table shares;
+drop table newStockData;
+drop table predictedStockData;
+drop table portfolios;
 drop table pf_users;
-
-
-
 
 quit;

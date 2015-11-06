@@ -132,6 +132,10 @@ sub ExecStockCQL {
 
 
 BEGIN {
+  $ENV{PORTF_DBMS}="oracle";
+  $ENV{PORTF_DB}="cs339";
+  $ENV{PORTF_DBUSER}="aly155";
+  $ENV{PORTF_DBPASS}="zaC43gcHq";
   $dbms = $ENV{'PORTF_DBMS'};
   $user = $ENV{'PORTF_DBUSER'};
   $pass = $ENV{'PORTF_DBPASS'};
@@ -157,7 +161,8 @@ BEGIN {
           exec $0,@ARGV;
       } else {
           # not a path, use env to find it
-          exec "env", $0, @ARGV;
+          exec 'env',cwd().'/'.$0,@ARGV;
+          #exec "env", $0, @ARGV;
       }
     }
   }

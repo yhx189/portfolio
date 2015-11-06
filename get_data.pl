@@ -18,21 +18,28 @@ $vol=0;
 $from=0;
 $to=0;
 $plot=0;
+$nohistorical=0;
+$current=0;
+$predicted=0;
 
 &GetOptions( "notime"=>\$notime,
              "open" => \$open,
-	     "high" => \$high,
-	     "low" => \$low,
-	     "close" => \$close,
-	     "vol" => \$vol,
-	     "from=s" => \$from,
-	     "to=s" => \$to, "plot" => \$plot);
+       "high" => \$high,
+       "low" => \$low,
+       "close" => \$close,
+       "vol" => \$vol,
+       "from=s" => \$from,
+       "to=s" => \$to, 
+       "plot" => \$plot,
+       "nohistorical" => \$nohistorical,
+       "current" => \$current,
+       "predicted" => \$predicted);
 
 if (defined $from) { $from=parsedate($from); }
 if (defined $to) { $to=parsedate($to); }
 
 
-$usage = "usage: get_data.pl [--open] [--high] [--low] [--close] [--vol] [--from=time] [--to=time] [--plot] SYMBOL\n";
+$usage = "usage: get_data.pl [--open] [--high] [--low] [--close] [--vol] [--from=time] [--to=time] [--plot] [--nohistorical] [--current] [--predicted] SYMBOL\n";
 
 $#ARGV == 0 or die $usage;
 
@@ -48,11 +55,34 @@ push @fields, "volume" if $vol;
 
 my $sql;
 
-$sql = "select " . join(",",@fields) . " from ".GetStockPrefix()."StocksDaily";
-$sql.= " where symbol = '$symbol'";
-$sql.= " and timestamp >= $from" if $from;
-$sql.= " and timestamp <= $to" if $to;
-$sql.= " order by timestamp";
+if(!$nohistorical){
+  $sql = "select " . join(",",@fields) . " from ".GetStockPrefix()."StocksDaily";
+  $sql.= " where symbol = '$symbol'";
+  $sql.= " and timestamp >= $from" if $from;
+  $sql.= " and timestamp <= $to" if $to;
+}
+if ((!$nohistorical && $current) || (!$nohistorical && $predicted)){
+  $sql .= " union all ";
+}
+if($current){
+  $sql .= "select " . join(",",@fields) . " from newStockData";
+  $sql.= " where symbol = '$symbol'";
+  $sql.= " and timestamp >= $from" if $from;
+  $sql.= " and timestamp <= $to" if $to;
+}
+if ($current && $predicted){
+  $sql .= " union all ";
+}
+if($predicted){
+  $sql .= "select " . join(",",@fields) . " from predictedStockData";
+  $sql.= " where symbol = '$symbol'";
+  $sql.= " and timestamp >= $from" if $from;
+  $sql.= " and timestamp <= $to" if $to;
+}
+if(! $nohistorical || $current || $predicted){
+  $sql.= " order by timestamp";
+}
+
 
 my $data = ExecStockSQL("TEXT",$sql);
 

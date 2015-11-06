@@ -20,6 +20,7 @@ my @sqloutput=();
 # as a CGI script.
 #
 use strict;
+use stock_data_access;
 
 # The CGI web generation stuff
 # This helps make it easy to generate active HTML content
@@ -54,8 +55,8 @@ use Time::ParseDate;
 #
 # You need to override these for access to your database
 #
-my $dbuser="yhx189";
-my $dbpasswd="ztyLrzD18";
+my $dbuser="aly155";
+my $dbpasswd="zaC43gcHq";
 
 
 #
@@ -98,17 +99,27 @@ my $action;
 my $run;
 
 
-if (defined(param("act"))) { 
-  $action=param("act");
+if (defined(param("postact"))) { 
+  $action=param("postact");
   if (defined(param("run"))) { 
-    $run = param("run") == 1;
+  $run = param("run") == 1;
   } else {
     $run = 0;
   }
-} else {
-  $action="base";
-  $run = 1;
+}elsif (defined(param("act"))) { 
+    $action=param("act");
+    if (defined(param("run"))) { 
+      $run = param("run") == 1;
+    } else {
+      $run = 0;
+    }
+}else{
+    $action="base";
+    $run = 1;
 }
+
+
+
 
 my $dstr;
 
@@ -278,7 +289,7 @@ if ($action eq "login") {
   if ($logincomplain or !$run) { 
     print start_form(-name=>'Login'),
       h2('Login to Portfolio'),
-  "Name:",textfield(-name=>'user'), p,
+    "Name:",textfield(-name=>'user'), p,
     "Password:",password_field(-name=>'password'),p,
       hidden(-name=>'act',default=>['login']),
         hidden(-name=>'run',default=>['1']),
@@ -335,7 +346,7 @@ if ($action eq "base") {
   } else {
     my @portfolioIDs;
     eval{
-        @portfolioIDs = ExecSQL($dbuser, $dbpasswd, "select id from portfolio where username=?", "COL", $user);
+        @portfolioIDs = ExecSQL($dbuser, $dbpasswd, "select id from portfolios where username=?", "COL", $user);
     };
     print "<h2>Portfolios</h2>";
     #my (@portfolioIDs, $pfError) = GetPortfolios($user);
@@ -344,20 +355,58 @@ if ($action eq "base") {
     }
     print "<p><a href=\"portfolio.pl?act=addPortfolio\">Add a portfolio</a></p>";
     print "<hr>";
-    print "<h2> Add Data To Model </h2>";
-    print "insert data form here";
-    print "<hr>";
     print "<p>You are logged in as $user and can do the following:</p>";
     print "<p><a href=\"portfolio.pl?act=logout\">logout</a></p>";
     print "<p><a href=\"portfolio.pl?act=viewStock&stockID=blankStockName\">Browse Stocks</a></p>";
+    print "<p><a href=\"portfolio.pl?act=addStockInfo\">Add Stock Info</a></p>";
   }
 
 }
+
+if ($action eq "addStockInfo"){
+    if(!$run){
+        print "<h2> Add Data To Model </h2>";
+        print start_form(-name=>'addStockInfo'),
+        "Symbol:",textfield(-name=>'symbol'), p,
+        "Timestamp:",textfield(-name=>'timestamp'),p,
+        "Open:",textfield(-name=>'open'),p,
+        "High:",textfield(-name=>'high'),p,
+        "Low:",textfield(-name=>'low'),p,
+        "Close:",textfield(-name=>'close'),p,
+        "Volume:",textfield(-name=>'volume'),p,
+        hidden(-name=>'act',default=>['addStockInfo']),
+        hidden(-name=>'run',default=>['1']),
+        submit,
+          end_form;
+        print "<p><a href=\"portfolio.pl?act=base&run=1\">Return</a></p>";
+    }else{
+        my $symbol = param('symbol');
+        my $timestamp = param('timestamp');
+        my $open = param('open');
+        my $high = param('high');
+        my $low = param('low');
+        my $close = param('close');
+        my $volume = param('volume');
+
+
+        my $error;
+        $error=AddStockInfo($symbol, $timestamp, $open, $high, $low, $close, $volume);
+        if ($error) { 
+          print "Can't add stock info because: $error";
+        } else {
+          print "Added stock info for $symbol\n";
+        }
+        print "<p><a href=\"portfolio.pl?act=base&run=1\">Return</a></p>";
+    }
+}
+
+
+
+
 if ($action eq "addPortfolio"){
     if(!$run){
         print "<h2> Add a portfolio</h2>";
-        print start_form(-name=>'addPortfolio'),
-             h2('Add a portfolio'), 
+        print start_form(-name=>'addPortfolio'), 
             "Name: ", textfield(-name=>'name'),
              p,
             hidden(-name=>'run',-default=>['1']),
@@ -393,21 +442,23 @@ if ($action eq "viewPortfolio") {
     my $portfolioID=param('PortfolioID');
     my @stockIDs;
     eval{
-        @stockIDs = ExecSQL($dbuser, $dbpasswd, "select SYMBOL,AMNT from shares where username=? and portid=?", "COL", $user,$portfolioID);
-    };
-    print "<h2>Portfolios</h2>";
-    
-    
+        @stockIDs = ExecSQL($dbuser, $dbpasswd, "select SYMBOL,AMNT from shares where username=? and portfolioID=?", "COL", $user,$portfolioID);
+    };    
     print "<h2>Portfolio ID: $portfolioID</h2>";
-    print "<h3>Cash</h3>";
+    print "<hr> <h3> Stats </h3> <hr>";
+    my @cashAmnt;
+    eval{
+        @cashAmnt = ExecSQL($dbuser, $dbpasswd, "select cash from portfolios where username=? and ID=?", "ROW", $user, $portfolioID);
+    };
+    print "<h3>Cash Balance: $cashAmnt[0]</h3>";
     print "<p><a href=\"portfolio.pl?act=addCash&PortfolioID=$portfolioID\">Add Cash</a></p>";
     print "<hr>";
     print "<h3>Stock Holdings</h3>";
-    print @stockIDs;
+    #print @stockIDs;
     for my $stockID (@stockIDs){
-        print "<p><a href=\"portfolio.pl?act=viewStock&stockID=$stockID\">$stockID</a></p>";
+        print "<p><a href=\"portfolio.pl?act=viewStock&stockID=$stockID&PortfolioID=$portfolioID\"> $stockID &emsp;", getStockAmountInPortfolio($user, $portfolioID, $stockID),"</a></p>";
     }
-    print "<p><a href=\"portfolio.pl?act=addStock&PortfolioID=$portfolioID\">Add Stock</a></p>";
+    print "<p><a href=\"portfolio.pl?act=tradeStock&PortfolioID=$portfolioID\">Add Stock</a></p>";
     print "<hr>";
     print "<p><a href=\"portfolio.pl?act=base\">Return to main page</a></p>";
   }
@@ -416,44 +467,32 @@ if ($action eq "viewPortfolio") {
 
 if ($action eq "addCash") {
     my $portfolioID=param('PortfolioID'); 
-    print "<h2>add cash</h2>";
-    print "<p><a href=\"portfolio.pl?act=viewPortfolio&PortfolioID=$portfolioID\">Return to portfolio</a></p>"; 
-}
-
-
-if ($action eq "addStock") {
-    my $portfolioID=param('PortfolioID'); 
+    print "<h2>Add cash</h2>";
     if(!$run){
-        print "<h2> Add a stock</h2>";
-        print start_form(-name=>'addStock'),
-             h2('Add a stock'), 
-            "SYMBOL: ", textfield(-name=>'symbol'),
+        print start_form(-name=>'addCash'), 
+            "Amount ", textfield(-name=>'amount'),
              p,
-            "AMNT: ", textfield(-name=>'amnt'),
-            p,
             hidden(-name=>'run',-default=>['1']),
-            hidden(-name=>'act',-default=>['addStock']),
-            hidden(-name=>'PortfolioID',-default=>[$portfolioID]),
+            hidden(-name=>'act',-default=>['addCash']),
+            hidden(-name=>'PortfolioID',-default=>$portfolioID),
             submit,
             end_form,
             hr;
+    }else{
+        my $cashAmnt = param('amount');
+        my $addError = AddCash($portfolioID, $user, $cashAmnt);
+        if(!$addError){
+            print "<p>success!</p>";
+            print $portfolioID;
         }else{
-            my $symbol = param('symbol');
-            my $amnt = param('amnt');
-            my @rows;
-            eval {
-                @rows = ExecSQL($dbuser, $dbpasswd, "insert into shares(symbol,amnt,portid,username) values(?,?,?,?)", undef,$symbol,$amnt, $portfolioID,$user);
-  
-            };
-            if($@){
-                print $@;
-            } else{
-                print "success";
-            }
-            print "<p><a href=\"portfolio.pl?act=viewPortfolio&PortfolioID=$portfolioID\">Return to portfolio</a></p>"; 
+           print $addError;
         }
- 
+        print "<p><a href=\"portfolio.pl?act=viewPortfolio&PortfolioID=$portfolioID\">Return to portfolio</a></p>"; 
+    }
+
 }
+
+
 
 if ($action eq "viewStock") { 
   # The Javascript portion of our app
@@ -469,39 +508,153 @@ if ($action eq "viewStock") {
     print "<p>If you have an account, please <a href=\"portfolio.pl?act=login\">login</a></p>";
   } elsif (!$run) {
     my $stockID=param('stockID');
-    print "<h2 id=\"stockname\">$stockID</h2>";
+    my $portfolioID=param('PortfolioID');
+    $portfolioID = "" if !defined($portfolioID);
+    $stockID = "" if !defined($stockID);
+
+    print "Stock:", "<input type=\"text\" name=\"symbolForGraph\" value = $stockID><br>";
     print "<hr>";
     print "<h3>GRAPH</h3>";
-    print "Search bar to look up stock name <br>";
-    print "checkboxes to select whether to display historical data, predicted data or own input data or a combination thereof";
+    print "Select start date: <input type=\"date\" id=\"stockStartDate\" value=\"2015-01-01\"><br>";
+    print "Select Interval: <input type=\"radio\" name=\"interval\" onClick=\"displayGraph()\" value=\"week\">Week <br> 
+            <input type=\"radio\" name=\"interval\" onClick=\"displayGraph()\" value=\"month\">Month <br> 
+            <input type=\"radio\" name=\"interval\" onClick=\"displayGraph()\" value=\"quarter\">Quarter <br> 
+            <input type=\"radio\" name=\"interval\" onClick=\"displayGraph()\" value=\"year\">Year <br>
+            <input type=\"radio\" name=\"interval\" onClick=\"displayGraph()\" value=\"fiveyears\">Five Years<br>";
     print "<div id = \"symbolDataSelection\"><label><input type=\"checkbox\" onClick=\"displayGraph()\" name=\"Historical\" value=\"Historical\">Historical</label><br>
-    <label><input type=\"checkbox\" onClick=\"displayGraph()\" name=\"Added\" value=\"Added\">Added</label><br>
+    <label><input type=\"checkbox\" onClick=\"displayGraph()\" name=\"Added\" value=\"Current\">Current</label><br>
     <label><input type=\"checkbox\" onClick=\"displayGraph()\" name=\"Predicted\" value=\"Predicted\">Predicted</label><br>";
     print "<div id=\"chartdata\"></div>";
+
+
     print "<hr>";
     print "<h3>Buy and Sell Functionality</h3>";
-    print "Buy and sell buttons, amount, select which portfolio you want to put it in, default being the portfolio you navigated from";
-    print "<hr>";
+    print start_form(-name=>'tradeStock', -action => 'portfolio.pl'),p,
+            "Amount: ", textfield(-name=>'amount'),
+            p,
+            radio_group(
+                -name    => 'stockAction',
+                -values  => ['buy', 'sell'],
+                -default => 'buy',
+                -columns => 2,
+                -rows    => 1,
+            ),
+            "Portfolio to add to: ", textfield(-name=>'portfolioID',-default=>$portfolioID),
+            hidden(-name=>'run',-default=>['1']),
+            hidden(-name=>'postact',-default=>['tradeStock']),
+            hidden(-name=>'symbol',-default=>$stockID),
+            submit,
+            end_form,
+            hr;
     print "<h3>Automated Strategy</h3>";
     print "<p><a href=\"portfolio.pl?act=testStrategy&stockID=$stockID\">Test Automated Strategy On $stockID</a></p>";
     print "<hr>";
     print "<p><a href=\"portfolio.pl?act=base\">Return to main page</a></p>";
   }else{
-    my $stockID=param('stockID');
+    my $stockSymbol = param('stockSymbol');
+    my $historical= param('historical') == 1;
+    my $current = param('current') == 1;
+    my $predicted = param('predicted') == 1;
+    my $startDate = param('startDate');
+    my $endDate = param('endDate');
     ## trying out some sql
-    my $format = "raw";
-    my ($str,$error) = getSymbols("AAPL",$format);
-      if (!$error) {
-        if ($format eq "table") { 
-          print "<div id=\"symbolDataDiv\">";
-          print "<h2>Symbol Data</h2>$str";
-          print "</div>";
-        } else {
-          print $str;
-        }
-      }
+    
+    my $databaseString = "";
+    if (! $historical){
+      $databaseString .= "--nohistorical";
+    }
+    if($current){
+      $databaseString .= " --current";
+    }
+    if($predicted){
+      $databaseString .= " --predicted";
+      print "PRE", `./time_series_symbol_project.pl AAPL 4 AWAIT 200 AR 16` ,"ENDPRE";   
+    }
+
+    print "query being run: ./get_data.pl --open --high --low --close --vol --from=\"$startDate\" --to=\"$endDate\" $databaseString $stockSymbol";
+    print `./get_data.pl --open --high --low --close --vol --from="$startDate" --to="$endDate" $databaseString $stockSymbol`;
+    print `./shannon_ratchet.pl AAPL 1000 20`;
+
+    #my $format = "raw";
+    #my ($str,$error) = getSymbols($stockID,$format);
+    #  if (!$error) {
+    #   if ($format eq "table") { 
+    #     print "<div id=\"symbolDataDiv\">";
+    #     print "<h2>Symbol Data</h2>$str";
+    #     print "</div>";
+    #   } else {
+    #     print $str;
+    #   }
+    #    }
   }
 }
+
+
+
+if ($action eq "tradeStock") { 
+  # The Javascript portion of our app
+  #
+  print "<script src=\"http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js\" type=\"text/javascript\"></script>";
+  print "<script type=\"text/javascript\" src=\"portfolio.js\"> </script>";
+
+  if ($user eq "anon") {
+    print "<h2>Welcome to Stock Portfolio</h2>";
+    print "<p>If you don't have an account, please <a href=\"portfolio.pl?act=create-account\">sign up</a></p>";
+    print "<p>If you have an account, please <a href=\"portfolio.pl?act=login\">login</a></p>";
+  } elsif (!$run) {
+    my $portfolioID=param('PortfolioID');
+    $portfolioID = "" if !defined($portfolioID);
+    print "<h3>Buy and Sell Stock</h3>";
+    print start_form(-name=>'tradeStock', -action => 'portfolio.pl',
+             -method  => 'POST'),p,
+            "Stock Name: ", textfield(-name=>'symbol'),
+            "Amount: ", textfield(-name=>'amount'),
+            p,
+            radio_group(
+                -name    => 'stockAction',
+                -values  => ['buy', 'sell'],
+                -default => 'buy',
+                -columns => 2,
+                -rows    => 1,
+            ),
+            "Portfolio to add to: ", textfield(-name=>'portfolioID',-default=>$portfolioID),
+            hidden(-name=>'run',-default=>['1']),
+            hidden(-name=>'postact',-default=>['tradeStock']),
+
+            submit,
+            end_form,
+            hr;
+    print "<p><a href=\"portfolio.pl?act=base\">Return to main page</a></p>";
+  }else{
+    my $symbol=param('symbol');
+    my $stockAction=param('stockAction');
+    my $portfolioID=param('portfolioID');
+    my $amount=param('amount');
+    if($stockAction eq "sell"){
+      $amount = 0 - $amount;
+    }
+    if (userHasStockInPortfolio($user, $portfolioID, $symbol)) { 
+      print "$user had ", getStockAmountInPortfolio($user, $portfolioID, $symbol) , "of $symbol in $portfolioID originally";
+      my $error = updateUserStock($amount, $user, $portfolioID, $symbol);
+      if ($error) { 
+           print "Can't update stock because: $error";
+      } else {
+           print "updated stock\n";
+      }
+    }else{
+        my $error = addNewStockToPortfolio($symbol, $portfolioID, $user, $amount);
+        if($error){
+          print "could not add stock to portfolio"
+        }else{
+          print "successfully added stock to portfolio"
+        }
+    }
+    print "<p><a href=\"portfolio.pl?act=base\">Return to main page</a></p>";
+
+  }
+}
+
+
 
 if ($action eq "testStrategy") { 
   # The Javascript portion of our app
@@ -515,20 +668,32 @@ if ($action eq "testStrategy") {
     print "<h2>Welcome to Stock Portfolio</h2>";
     print "<p>If you don't have an account, please <a href=\"portfolio.pl?act=create-account\">sign up</a></p>";
     print "<p>If you have an account, please <a href=\"portfolio.pl?act=login\">login</a></p>";
-  } else {
+  } elsif (!$run){
     my $stockID=param('stockID');
-    print "<h2>Testing STRATEGY NAME on $stockID</h2>";
-    print "<hr>";
-    print "<h3>Time Frame</h3>";
-    print "Input boxes to select time frame<br>";
-    print "Button to run strategy<br>";
-    print "Maybe a button to select a particular stock";
-    print "<hr>";
-    print "<h3> Results of Strategy: </h3> <br> Total Earnings: \$1929929";
-    print "<hr>";
+    print "<h2>Testing Shannon Ratchet</h2>";
+     print start_form(-name=>'testStrategy'),p,
+            "Stock Name: ", textfield(-name=>'symbol', -default=>$stockID),
+            "Initial Cash: ", textfield(-name=>'initialcash'),
+            "Trading Cost: ", textfield(-name=>'tradingcost'),
+            hidden(-name=>'run',-default=>['1']),
+            hidden(-name=>'act',-default=>['testStrategy']),
+            submit,
+            end_form,
+            hr;
     print "<p><a href=\"portfolio.pl?act=viewStock&stockID=$stockID\">Return to stock view</a></p>";
-    print "<p><a href=\"portfolio.pl?act=base\">Return to main page</a></p>";
+  }else{
+    my $symbol=param('symbol');
+    my $initialcash=param('initialcash');
+    my $tradingcost=param('tradingcost');
+
+    print "instruction being run: ./shannon_ratchet.pl $symbol $initialcash $tradingcost", "<br>";
+    print `./shannon_ratchet.pl $symbol $initialcash $tradingcost`;
+
+
+    print "<p><a href=\"portfolio.pl?act=viewStock&stockID=$symbol\">Return to stock view</a></p>";
   }
+  print "<hr>";
+  print "<p><a href=\"portfolio.pl?act=base\">Return to main page</a></p>";
 }
 
 ##################################################################################################
@@ -554,13 +719,12 @@ if ($action eq "create-account") {
       my $name=param('name');
       my $email=param('email');
       my $password=param('password');
-      my $referrer = "root";
 
-      my $errorAdd = UserAdd($name,$password,$email,$referrer);
+      my $errorAdd = UserAdd($name,$password,$email);
       if ($errorAdd) { 
            print "Can't add user because: $errorAdd";
       } else {
-           print "Added user $name $email as referred by $referrer\n";
+           print "Added user $name $email\n";
       }
     }
   print "<p><a href=\"portfolio.pl?act=base&run=1\">Return</a></p>";
@@ -624,7 +788,7 @@ print end_html;
 #
 sub UserAdd { 
   eval { ExecSQL($dbuser,$dbpasswd,
-     "insert into pf_users (name,password,email,referer) values (?,?,?,?)",undef,@_);};
+     "insert into pf_users (name,password,email) values (?,?,?)",undef,@_);};
   return $@;
 }
 
@@ -643,7 +807,7 @@ sub AddPortfolio{
   my ($addName, $addUser) = @_;
   my @rows;
   eval {
-    @rows = ExecSQL($dbuser, $dbpasswd, "insert into portfolio(id,username,cash) values(?,?,0)", undef,$addName,$addUser);
+    @rows = ExecSQL($dbuser, $dbpasswd, "insert into portfolios(id,username,cash) values(?,?,0)", undef,$addName,$addUser);
   
   };
   if ($@) { 
@@ -651,15 +815,13 @@ sub AddPortfolio{
   } else {
      return (MakeRaw("new_portfolio","ROW",@rows),$@);
   }
-
-
 }
 
 sub GetPortfolios{
     my $qUser = @_;
     my @rows;
     eval{
-        @rows = ExecSQL($dbuser, $dbpasswd, "select id from portfolio where username=?", undef, $user);
+        @rows = ExecSQL($dbuser, $dbpasswd, "select id from portfolios where username=?", undef, $user);
     };
     if ($@) { 
         return (undef,$@);
@@ -686,6 +848,77 @@ sub getSymbols {
       return (MakeRaw("symbol_data","2D",@rows),$@);
     }
   }
+}
+
+
+sub AddStockInfo{
+  my ($symbol, $timestamp, $open, $high, $low, $close, $volume) = @_;
+  my @rows;
+  eval {
+    @rows = ExecSQL($dbuser, $dbpasswd, "insert into newStockData(symbol,timestamp,open,high,low,close,volume) values(?,?,?,?,?,?,?)", undef,$symbol,$timestamp,$open,$high,$low,$close,$volume);
+  };
+  if ($@) { 
+   return (undef,$@);
+  } else {
+     return (MakeRaw("new_stock_data","ROW",@rows),$@);
+  }
+}
+
+sub userHasStockInPortfolio {
+  my ($user, $portfolioID, $symbol) = @_;
+  my @col;
+  eval {@col=ExecSQL($dbuser,$dbpasswd, "select count(*) from shares where username=? and portfolioID=? and symbol=?","COL",$user,$portfolioID,$symbol);};
+  if ($@) { 
+    return 0;
+  } else {
+    return $col[0]>0;
+  }
+}
+
+sub updateUserStock {
+  my ($amnt, $user, $portfolioID, $symbol) = @_;
+  my @rows,@cash;
+  eval {@rows=ExecSQL($dbuser,$dbpasswd, "update shares set amnt = amnt + ? where username=? and portfolioID=? and symbol=?",undef,$amnt, $user,$portfolioID,$symbol);};
+  ## update related cash amnt -Yang
+  
+  eval{
+      @cash = ExecSQL($dbuser, $dbpasswd, "update portfolios cash = cash - ? where username=? and id=?", undef, $money, $user, $portfolioID);
+  };
+  if ($@) { 
+   return (undef,$@);
+  } else {
+     return (MakeRaw("updated_stock_data","ROW",@rows),$@);
+  }
+}
+
+sub getStockAmountInPortfolio {
+  my ($user, $portfolioID, $symbol) = @_;
+  my @col;
+  eval {@col=ExecSQL($dbuser,$dbpasswd, "select amnt from shares where username=? and portfolioID=? and symbol=?","COL",$user,$portfolioID,$symbol);};
+  if ($@) { 
+    return 0;
+  } else {
+    return $col[0];
+  }
+}
+
+
+# returns false on success, $error string on failure
+sub addNewStockToPortfolio { 
+  my ($symbol, $portfolioID, $user, $amount) = @_;
+  eval { ExecSQL($dbuser, $dbpasswd, "insert into shares(symbol,portfolioID,username,amnt) values(?,?,?,?)", undef,$symbol,$portfolioID, $user,$amount);};
+  return $@;
+}
+
+
+sub AddCash{
+  my ($pfName, $pfUser,$cashAmnt) = @_;
+  
+  eval {
+    ExecSQL($dbuser, $dbpasswd, "update portfolios SET cash=cash+? where id=? and username=?", undef,$cashAmnt,$pfName,$pfUser);
+  };
+
+  return $@;
 }
 
 ################################################################################################
@@ -901,10 +1134,14 @@ sub ExecSQL {
 #
 ######################################################################
 
-# The following is necessary so that DBD::Oracle can
-# find its butt
+# The following is necessary for DBD::Oracle 
 #
 BEGIN {
+  $ENV{PORTF_DBMS}="oracle";
+  $ENV{PORTF_DB}="cs339";
+  $ENV{PORTF_DBUSER}="aly155";
+  $ENV{PORTF_DBPASS}="zaC43gcHq";
+
   unless ($ENV{BEGIN_BLOCK}) {
     use Cwd;
     $ENV{ORACLE_BASE}="/raid/oracle11g/app/oracle/product/11.2.0.1.0";
