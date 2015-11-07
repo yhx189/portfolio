@@ -452,7 +452,16 @@ if ($action eq "viewPortfolio") {
         @stockIDs = ExecSQL($dbuser, $dbpasswd, "select SYMBOL,AMNT from shares where username=? and portfolioID=?", "COL", $user,$portfolioID);
     };    
     print "<h2>Portfolio ID: $portfolioID</h2>";
-    print "<hr> <h3> Stats </h3> <hr>";
+    print "<div class=\"jumbotron\" style=\"background: purple\"> <h3> Stats </h3> ";
+    my @infos =  `./get_info.pl @stockIDs`;
+    for my $info (@infos){
+        print "<p> $info </p>"; 
+    }
+    my @covars = `./get_covar.pl @stockIDs`;
+    for my $covar (@covars){
+        print "<p> $covar </p>";
+    }
+    print "</div>";
     my @cashAmnt;
     eval{
         @cashAmnt = ExecSQL($dbuser, $dbpasswd, "select cash from portfolios where username=? and ID=?", "ROW", $user, $portfolioID);
@@ -462,7 +471,6 @@ if ($action eq "viewPortfolio") {
     print "<hr>";
     print "<h3>Stock Holdings</h3>";
     #print @stockIDs;
-    print `./get_info.pl @stockIDs`;
     for my $stockID (@stockIDs){
          my @price = `./quote.pl $stockID`;
          print "<p> current price: " ;
