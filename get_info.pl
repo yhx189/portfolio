@@ -23,16 +23,12 @@ $#ARGV>=0 or die "usage: get_info.pl [--field=field] [--from=time] [--to=time] S
 print join("\t","symbol","field","num","mean","std","min","max","cov"),"\n";
 
 while ($symbol=shift) {
-    $sql = "select count($field), avg($field), stddev($field), min($field), max($field)  from ".GetStockPrefix()."StocksDaily where symbol='$symbol'" ;
-    #$sql = "select count($field), avg($field), stddev($field), min($field), max($field)  from newStockData where symbol='$symbol'" ;
+  $sql = "select count($field), avg($field), stddev($field), min($field), max($field)  from ".GetStockPrefix()."StocksDaily where symbol='$symbol'";
   $sql.= " and timestamp>=$from" if $from;
   $sql.= " and timestamp<=$to" if $to;
-  #$sql.= "UNION select count($field), avg($field), stddev($field), min($field), max($field)  from newStockData where symbol='$symbol'" ;
- 
+
   ($n,$mean,$std,$min,$max) = ExecStockSQL("ROW",$sql);
-  
- 
-  
+
   print join("\t",$symbol,$field, $n, $mean, $std, $min, $max, $std/$mean),"\n";
   
 }

@@ -261,16 +261,15 @@ print "<body style=\"height:100\%;margin:0\">";
 # This tells the web browser to render the page in the style
 # defined in the css file
 #
-#print "<style type=\"text/css\">\n\@import \"portfolio.css\";\n</style>\n";
-  
+print "<style type=\"text/css\">\n\@import \"portfolio.css\";\n</style>\n";
 print "<!-- Latest compiled and minified CSS -->
 <link rel=\"stylesheet\" href=\"http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css\">
-
 <!-- jQuery library -->
 <script src=\"https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js\"></script>
-
 <!-- Latest compiled JavaScript -->
 <script src=\"http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js\"></script>";
+print "<center>" if !$debug;  
+
 print "<center>" if !$debug;
 
 
@@ -310,8 +309,8 @@ if ($action eq "login") {
 
 #this function gets called by the javascript. leaving it here just in case we need to interact with the JS early on.
 if ($action eq "interactionWithPerl") { 
-  #print "<script src=\"http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js\" type=\"text/javascript\"></script>";
-  #print "<script type=\"text/javascript\" src=\"portfolio.js\"> </script>";
+  print "<script src=\"http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js\" type=\"text/javascript\"></script>";
+  print "<script type=\"text/javascript\" src=\"portfolio.js\"> </script>";
   print "on main page";
 }
 
@@ -326,10 +325,10 @@ if ($action eq "interactionWithPerl") {
 if ($action eq "base") { 
   # The Javascript portion of our app
   #
-  #print "<script src=\"http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js\" type=\"text/javascript\"></script>";
+  print "<script src=\"http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js\" type=\"text/javascript\"></script>";
 
-  #print "<script type=\"text/javascript\" src=\"portfolio.js\"> </script>";
-  
+  print "<script type=\"text/javascript\" src=\"portfolio.js\"> </script>";
+
   #
   # And a div to populate with info about nearby stuff
   #
@@ -462,21 +461,22 @@ if ($action eq "viewPortfolio") {
         print "<p> $covar </p>";
     }
     print "</div>";
+    print "<h3>Cash</h3>";
     my @cashAmnt;
     eval{
         @cashAmnt = ExecSQL($dbuser, $dbpasswd, "select cash from portfolios where username=? and ID=?", "ROW", $user, $portfolioID);
-    };
-    print "<h3>Cash Balance: $cashAmnt[0]</h3>";
+     };
+     print "<h3>Cash Balance: $cashAmnt[0]</h3>";
     print "<p><a href=\"portfolio.pl?act=addCash&PortfolioID=$portfolioID\">Add Cash</a></p>";
     print "<hr>";
     print "<h3>Stock Holdings</h3>";
     #print @stockIDs;
     for my $stockID (@stockIDs){
-         my @price = `./quote.pl $stockID`;
-         print "<p> current price: " ;
-         print substr @price[9],5;
-         print "</p>";
-         print "<p><a href=\"portfolio.pl?act=viewStock&stockID=$stockID&PortfolioID=$portfolioID\"> $stockID &emsp;", getStockAmountInPortfolio($user, $portfolioID, $stockID),"</a></p>";
+        my @queryOutput = `./quote.pl $stockID`;
+        my $mostRecentClosePrice = substr $queryOutput[6], 6;
+        $mostRecentClosePrice = "could not get most recent stock price" if !defined($mostRecentClosePrice);
+      
+        print "<p><a href=\"portfolio.pl?act=viewStock&stockID=$stockID&PortfolioID=$portfolioID\"> $stockID &emsp; Amount in Portfolio:", getStockAmountInPortfolio($user, $portfolioID, $stockID), " &emsp; Current Market Value: ", $mostRecentClosePrice,"</a></p>";
     }
     print "<p><a href=\"portfolio.pl?act=tradeStock&PortfolioID=$portfolioID\">Add Stock</a></p>";
     print "<hr>";
@@ -487,7 +487,7 @@ if ($action eq "viewPortfolio") {
 
 if ($action eq "addCash") {
     my $portfolioID=param('PortfolioID'); 
-    print "<h2>Deposit</h2>";
+    print "<h2>Add cash</h2>";
     if(!$run){
         print start_form(-name=>'addCash'), 
             "Amount ", textfield(-name=>'amount'),
@@ -543,7 +543,8 @@ if ($action eq "viewStock") {
             <input type=\"radio\" name=\"interval\" onClick=\"displayGraph()\" value=\"fiveyears\">Five Years<br>";
     print "<div id = \"symbolDataSelection\"><label><input type=\"checkbox\" onClick=\"displayGraph()\" name=\"Historical\" value=\"Historical\">Historical</label><br>
     <label><input type=\"checkbox\" onClick=\"displayGraph()\" name=\"Added\" value=\"Current\">Current</label><br>
-    <label><input type=\"checkbox\" onClick=\"displayGraph()\" name=\"Predicted\" value=\"Predicted\">Predicted</label><br>";
+    <label><input type=\"checkbox\" onClick=\"displayGraph()\" name=\"Predicted\" value=\"Predicted\">Predicted (May take a while to load)</label><br>";
+    print "Days to predict:", "<input type=\"number\" id=\"daysToPredict\" value =\"5\"><br>";
     print "<div id=\"chartdata\"></div>";
 
 
@@ -577,8 +578,9 @@ if ($action eq "viewStock") {
     my $predicted = param('predicted') == 1;
     my $startDate = param('startDate');
     my $endDate = param('endDate');
+    my $daysToPredict = param('daysToPredict');
     ## trying out some sql
-    
+
     my $databaseString = "";
     if (! $historical){
       $databaseString .= "--nohistorical";
@@ -587,13 +589,19 @@ if ($action eq "viewStock") {
       $databaseString .= " --current";
     }
     if($predicted){
-      $databaseString .= " --predicted";
-      print "PRE", `./time_series_symbol_project.pl AAPL 4 AWAIT 200 AR 16` ,"ENDPRE";   
+      #$databaseString .= " --predicted";
+      my $mostRecentTimestamp = 0;
+      my @mostRecentTimestampQuery = `./get_data.pl --from="01/01/1970" --to="01/01/2016" --current $stockSymbol`;
+      print "generating predictions for next $daysToPredict days after $mostRecentTimestampQuery[-1]";
+      my @output = `./time_series_symbol_project.pl $stockSymbol $daysToPredict AWAIT 200 AR 16`;
+      for(my $i = -$daysToPredict; $i < 0 ; $i++) {
+        print $output[$i];  
+      } 
+      
     }
 
-    print "query being run: ./get_data.pl --open --high --low --close --vol --from=\"$startDate\" --to=\"$endDate\" $databaseString $stockSymbol";
+    #print "query being run: ./get_data.pl --open --high --low --close --vol --from=\"$startDate\" --to=\"$endDate\" $databaseString $stockSymbol";
     print `./get_data.pl --open --high --low --close --vol --from="$startDate" --to="$endDate" $databaseString $stockSymbol`;
-    print `./shannon_ratchet.pl AAPL 1000 20`;
 
     #my $format = "raw";
     #my ($str,$error) = getSymbols($stockID,$format);
@@ -695,6 +703,7 @@ if ($action eq "testStrategy") {
             "Stock Name: ", textfield(-name=>'symbol', -default=>$stockID),
             "Initial Cash: ", textfield(-name=>'initialcash'),
             "Trading Cost: ", textfield(-name=>'tradingcost'),
+            "Days To Run: ", textfield(-name=>'days'),
             hidden(-name=>'run',-default=>['1']),
             hidden(-name=>'act',-default=>['testStrategy']),
             submit,
@@ -705,9 +714,9 @@ if ($action eq "testStrategy") {
     my $symbol=param('symbol');
     my $initialcash=param('initialcash');
     my $tradingcost=param('tradingcost');
-
-    print "instruction being run: ./shannon_ratchet.pl $symbol $initialcash $tradingcost", "<br>";
-    print `./shannon_ratchet.pl $symbol $initialcash $tradingcost`;
+    my $days=param('days');
+    print "instruction being run: ./shannon_ratchet.pl $symbol $initialcash $tradingcost $days", "<br>";
+    print `./shannon_ratchet.pl $symbol $initialcash $tradingcost $days`;
 
 
     print "<p><a href=\"portfolio.pl?act=viewStock&stockID=$symbol\">Return to stock view</a></p>";
@@ -894,7 +903,6 @@ sub userHasStockInPortfolio {
     return $col[0]>0;
   }
 }
-
 sub updateUserStock {
   my ($amnt, $user, $portfolioID, $symbol) = @_;
   my @rows;
@@ -915,8 +923,8 @@ sub updateUserStock {
   if ($@) { 
    return (undef,$@);
   } else {
-     return (MakeRaw("updated_stock_data","ROW",@rows),$@);
-  }
+     return (MakeRaw("updated_stock_data","ROW",@rows),$@); 
+ }
 }
 
 sub getStockAmountInPortfolio {
@@ -943,7 +951,7 @@ sub AddCash{
   my ($pfName, $pfUser,$cashAmnt) = @_;
   
   eval {
-    ExecSQL($dbuser, $dbpasswd, "update portfolios SET cash=cash+? where id=? and username=?", undef,$cashAmnt,$pfName,$pfUser);
+    ExecSQL($dbuser, $dbpasswd, "update portfolios SET cash=? where id=? and username=?", undef,$cashAmnt,$pfName,$pfUser);
   };
 
   return $@;
@@ -1169,6 +1177,7 @@ BEGIN {
   $ENV{PORTF_DB}="cs339";
   $ENV{PORTF_DBUSER}="aly155";
   $ENV{PORTF_DBPASS}="zaC43gcHq";
+  $ENV{PATH} = $ENV{PATH}.":.:.";
 
   unless ($ENV{BEGIN_BLOCK}) {
     use Cwd;

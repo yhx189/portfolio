@@ -61,7 +61,7 @@ if(!$nohistorical){
   $sql.= " and timestamp >= $from" if $from;
   $sql.= " and timestamp <= $to" if $to;
 }
-if ((!$nohistorical && $current) || (!$nohistorical && $predicted)){
+if (!$nohistorical && $current){
   $sql .= " union all ";
 }
 if($current){
@@ -70,16 +70,17 @@ if($current){
   $sql.= " and timestamp >= $from" if $from;
   $sql.= " and timestamp <= $to" if $to;
 }
-if ($current && $predicted){
-  $sql .= " union all ";
-}
-if($predicted){
-  $sql .= "select " . join(",",@fields) . " from predictedStockData";
-  $sql.= " where symbol = '$symbol'";
-  $sql.= " and timestamp >= $from" if $from;
-  $sql.= " and timestamp <= $to" if $to;
-}
-if(! $nohistorical || $current || $predicted){
+
+#if ($current && $predicted){
+#  $sql .= " union all ";
+# }
+# if($predicted){
+#   $sql .= "select " . join(",",@fields) . " from predictedStockData";
+#   $sql.= " where symbol = '$symbol'";
+#   $sql.= " and timestamp >= $from" if $from;
+#   $sql.= " and timestamp <= $to" if $to;
+# }
+if((!$nohistorical || $current) && !$notime){
   $sql.= " order by timestamp";
 }
 

@@ -8,6 +8,6 @@ $symbol=shift;
 $steps=shift;
 $model=join(" ",@ARGV);
 
-system "get_data.pl --notime --close $symbol > _data.in";
+system "get_data.pl --notime --close --current $symbol > _data.in";
 system "time_series_project _data.in $steps $model 2>/dev/null";
 

@@ -1,10 +1,10 @@
 #!/usr/bin/perl -w 
 
-$#ARGV==2 or die "usage: shannon_ratchet.pl symbol initialcash tradingcost\n";
+$#ARGV==3 or die "usage: shannon_ratchet.pl symbol initialcash tradingcost days\n";
 
-($symbol, $initialcash,$tradecost) = @ARGV;
+($symbol, $initialcash,$tradecost,$days) = @ARGV;
 
-
+$days = 10000 if !defined($days);
 $lastcash=$initialcash;
 $laststock=0;
 $lasttotal=$lastcash;
@@ -23,6 +23,9 @@ $day=0;
 
 
 while (<STOCK>) { 
+  if ($day >= $days){
+    last;
+  }
   chomp;
   @data=split;
   $stockprice=$data[1];
@@ -78,7 +81,7 @@ $roi_at_annual = $roi_at/($day/365.0);
 
 #print "$symbol\t$day\t$roi\t$roi_annual\n";
 
-		
+
 print "Invested:                        \t$initialcash\n";
 print "Days:                            \t$day\n";
 print "Total:                           \t$lasttotal (ROI=$roi % ROI-annual = $roi_annual %)\n";

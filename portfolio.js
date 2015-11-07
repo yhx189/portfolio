@@ -112,6 +112,8 @@ function displayGraph(){
 	var endYear = endDate.getFullYear();
 	var endDateString = endMonth + "/" + endDay + "/" + endYear;
 
+	var daysToPredict =  document.getElementById('daysToPredict').value;
+
 	$.get("portfolio.pl",
 		{
 			act:	"viewStock",
@@ -121,7 +123,8 @@ function displayGraph(){
 			current : current,
 			predicted : predicted,
 			startDate : startDateString,
-			endDate : endDateString
+			endDate : endDateString,
+			daysToPredict : daysToPredict
 		}, callBackAfterGettingStockData);
 
 };
