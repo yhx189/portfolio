@@ -261,9 +261,16 @@ print "<body style=\"height:100\%;margin:0\">";
 # This tells the web browser to render the page in the style
 # defined in the css file
 #
-print "<style type=\"text/css\">\n\@import \"portfolio.css\";\n</style>\n";
+#print "<style type=\"text/css\">\n\@import \"portfolio.css\";\n</style>\n";
   
+print "<!-- Latest compiled and minified CSS -->
+<link rel=\"stylesheet\" href=\"http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css\">
 
+<!-- jQuery library -->
+<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js\"></script>
+
+<!-- Latest compiled JavaScript -->
+<script src=\"http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js\"></script>";
 print "<center>" if !$debug;
 
 
@@ -303,8 +310,8 @@ if ($action eq "login") {
 
 #this function gets called by the javascript. leaving it here just in case we need to interact with the JS early on.
 if ($action eq "interactionWithPerl") { 
-  print "<script src=\"http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js\" type=\"text/javascript\"></script>";
-  print "<script type=\"text/javascript\" src=\"portfolio.js\"> </script>";
+  #print "<script src=\"http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js\" type=\"text/javascript\"></script>";
+  #print "<script type=\"text/javascript\" src=\"portfolio.js\"> </script>";
   print "on main page";
 }
 
@@ -319,10 +326,10 @@ if ($action eq "interactionWithPerl") {
 if ($action eq "base") { 
   # The Javascript portion of our app
   #
-  print "<script src=\"http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js\" type=\"text/javascript\"></script>";
+  #print "<script src=\"http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js\" type=\"text/javascript\"></script>";
 
-  print "<script type=\"text/javascript\" src=\"portfolio.js\"> </script>";
-
+  #print "<script type=\"text/javascript\" src=\"portfolio.js\"> </script>";
+  
   #
   # And a div to populate with info about nearby stuff
   #
@@ -455,8 +462,13 @@ if ($action eq "viewPortfolio") {
     print "<hr>";
     print "<h3>Stock Holdings</h3>";
     #print @stockIDs;
+    print `./get_info.pl @stockIDs`;
     for my $stockID (@stockIDs){
-        print "<p><a href=\"portfolio.pl?act=viewStock&stockID=$stockID&PortfolioID=$portfolioID\"> $stockID &emsp;", getStockAmountInPortfolio($user, $portfolioID, $stockID),"</a></p>";
+         my @price = `./quote.pl $stockID`;
+         print "<p> current price: " ;
+         print substr @price[9],5;
+         print "</p>";
+         print "<p><a href=\"portfolio.pl?act=viewStock&stockID=$stockID&PortfolioID=$portfolioID\"> $stockID &emsp;", getStockAmountInPortfolio($user, $portfolioID, $stockID),"</a></p>";
     }
     print "<p><a href=\"portfolio.pl?act=tradeStock&PortfolioID=$portfolioID\">Add Stock</a></p>";
     print "<hr>";
@@ -467,7 +479,7 @@ if ($action eq "viewPortfolio") {
 
 if ($action eq "addCash") {
     my $portfolioID=param('PortfolioID'); 
-    print "<h2>Add cash</h2>";
+    print "<h2>Deposit</h2>";
     if(!$run){
         print start_form(-name=>'addCash'), 
             "Amount ", textfield(-name=>'amount'),
@@ -877,12 +889,20 @@ sub userHasStockInPortfolio {
 
 sub updateUserStock {
   my ($amnt, $user, $portfolioID, $symbol) = @_;
-  my @rows,@cash;
+  my @rows;
+  my @cash;
   eval {@rows=ExecSQL($dbuser,$dbpasswd, "update shares set amnt = amnt + ? where username=? and portfolioID=? and symbol=?",undef,$amnt, $user,$portfolioID,$symbol);};
-  ## update related cash amnt -Yang
-  
+  # update related cash amnt -Yang
+  my @tmp = `./quote.pl $symbol`;
+  my $price = substr @tmp[9],5;       
+  my $money = $price * $amnt;
+  my $balance = ExecSQL($dbuser, $dbpasswd, "select cash from portfolios where username=? and id=?", undef, $user, $portfolioID);
+  if($balance < $money){
+      print "you do not have enough balance";
+      return(undef, $@);
+  }
   eval{
-      @cash = ExecSQL($dbuser, $dbpasswd, "update portfolios cash = cash - ? where username=? and id=?", undef, $money, $user, $portfolioID);
+      @cash = ExecSQL($dbuser, $dbpasswd, "update portfolios set cash = cash - ? where username=? and id=?", undef, $money, $user, $portfolioID);
   };
   if ($@) { 
    return (undef,$@);
