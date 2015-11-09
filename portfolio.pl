@@ -363,7 +363,7 @@ if ($action eq "base") {
     print "<hr>";
     print "<p>You are logged in as $user and can do the following:</p>";
     print "<p><a href=\"portfolio.pl?act=logout\">logout</a></p>";
-    print "<p><a href=\"portfolio.pl?act=viewStock&stockID=blankStockName\">Browse Stocks</a></p>";
+    print "<p><a href=\"portfolio.pl?act=viewStock&stockID=\">Browse Stocks</a></p>";
     print "<p><a href=\"portfolio.pl?act=addStockInfo\">Add Stock Info</a></p>";
   }
 
@@ -372,14 +372,24 @@ if ($action eq "base") {
 if ($action eq "addStockInfo"){
     if(!$run){
         print "<h2> Add Data To Model </h2>";
-        print start_form(-name=>'addStockInfo'),
+        # print start_form(-name=>'addStockInfo'),
+        # "Symbol:",textfield(-name=>'symbol'), p,
+        # "Timestamp:",textfield(-name=>'timestamp'),p,
+        # "Open:",textfield(-name=>'open'),p,
+        # "High:",textfield(-name=>'high'),p,
+        # "Low:",textfield(-name=>'low'),p,
+        # "Close:",textfield(-name=>'close'),p,
+        # "Volume:",textfield(-name=>'volume'),p,
+        # hidden(-name=>'act',default=>['addStockInfo']),
+        # hidden(-name=>'run',default=>['1']),
+        # submit,
+        #   end_form
+        #   hr;
+
+        print start_form(-name=>'addStockInfoAutomatically'),
         "Symbol:",textfield(-name=>'symbol'), p,
-        "Timestamp:",textfield(-name=>'timestamp'),p,
-        "Open:",textfield(-name=>'open'),p,
-        "High:",textfield(-name=>'high'),p,
-        "Low:",textfield(-name=>'low'),p,
-        "Close:",textfield(-name=>'close'),p,
-        "Volume:",textfield(-name=>'volume'),p,
+        "From (mm/dd/yyyy):",textfield(-name=>'from'),p,
+        "To (mm/dd/yyyy):",textfield(-name=>'to'),p,
         hidden(-name=>'act',default=>['addStockInfo']),
         hidden(-name=>'run',default=>['1']),
         submit,
@@ -387,21 +397,39 @@ if ($action eq "addStockInfo"){
         print "<p><a href=\"portfolio.pl?act=base&run=1\">Return</a></p>";
     }else{
         my $symbol = param('symbol');
-        my $timestamp = param('timestamp');
-        my $open = param('open');
-        my $high = param('high');
-        my $low = param('low');
-        my $close = param('close');
-        my $volume = param('volume');
+        my $from = param('from');
+        my $to = param('to');
+        # my $timestamp = param('timestamp');
+        # my $open = param('open');
+        # my $high = param('high');
+        # my $low = param('low');
+        # my $close = param('close');
+        # my $volume = param('volume');
 
+        if (ValidStock($symbol)){
+          my @output = `./quotehist.pl --open --high --low --close --vol --from=\"$from\" --to=\"$to\" $symbol`;
+          print "query : ./quotehist.pl --open --high --low --close --vol --from=\"$from\" --to=\"$to\" $symbol";
+          foreach my $newDataEntry (@output) { 
+              my @splitString = split(' ', $newDataEntry);
+              my $timestamp =$splitString[0];
+              my $open = $splitString[1];
+              my $high = $splitString[2];
+              my $low = $splitString[3];
+              my $close = $splitString[4];
+              my $volume = $splitString[5];
 
-        my $error;
-        $error=AddStockInfo($symbol, $timestamp, $open, $high, $low, $close, $volume);
-        if ($error) { 
-          print "Can't add stock info because: $error";
-        } else {
-          print "Added stock info for $symbol\n";
+              my $error;
+              $error=AddStockInfo($symbol, $timestamp, $open, $high, $low, $close, $volume);
+              if ($error) { 
+                print "Can't add stock info because: $error";
+              } else {
+                print "Added stock info for $symbol\n";
+              }
+          }
+        }else{
+          print "invalid stock symbol";
         }
+      
         print "<p><a href=\"portfolio.pl?act=base&run=1\">Return</a></p>";
     }
 }
@@ -473,7 +501,7 @@ if ($action eq "viewPortfolio") {
     #print @stockIDs;
     for my $stockID (@stockIDs){
         my @queryOutput = `./quote.pl $stockID`;
-        my $mostRecentClosePrice = substr $queryOutput[6], 6;
+        my $mostRecentClosePrice = substr $queryOutput[9], 5;
         $mostRecentClosePrice = "could not get most recent stock price" if !defined($mostRecentClosePrice);
       
         print "<p><a href=\"portfolio.pl?act=viewStock&stockID=$stockID&PortfolioID=$portfolioID\"> $stockID &emsp; Amount in Portfolio:", getStockAmountInPortfolio($user, $portfolioID, $stockID), " &emsp; Current Market Value: ", $mostRecentClosePrice,"</a></p>";
@@ -532,7 +560,7 @@ if ($action eq "viewStock") {
     $portfolioID = "" if !defined($portfolioID);
     $stockID = "" if !defined($stockID);
 
-    print "Stock:", "<input type=\"text\" name=\"symbolForGraph\" value = $stockID><br>";
+    print "Stock: <input type=\"text\" name=\"symbolForGraph\" value = $stockID><br>";
     print "<hr>";
     print "<h3>GRAPH</h3>";
     print "Select start date: <input type=\"date\" id=\"stockStartDate\" value=\"2015-01-01\"><br>";
@@ -551,6 +579,7 @@ if ($action eq "viewStock") {
     print "<hr>";
     print "<h3>Buy and Sell Functionality</h3>";
     print start_form(-name=>'tradeStock', -action => 'portfolio.pl'),p,
+            "Stock: ", textfield(-name=>'symbol',-default=>$stockID),
             "Amount: ", textfield(-name=>'amount'),
             p,
             radio_group(
@@ -563,7 +592,6 @@ if ($action eq "viewStock") {
             "Portfolio to add to: ", textfield(-name=>'portfolioID',-default=>$portfolioID),
             hidden(-name=>'run',-default=>['1']),
             hidden(-name=>'postact',-default=>['tradeStock']),
-            hidden(-name=>'symbol',-default=>$stockID),
             submit,
             end_form,
             hr;
@@ -580,40 +608,33 @@ if ($action eq "viewStock") {
     my $endDate = param('endDate');
     my $daysToPredict = param('daysToPredict');
     ## trying out some sql
+    if(ValidStock($stockSymbol)){
+      my $databaseString = "";
+      if (! $historical){
+        $databaseString .= "--nohistorical";
+      }
+      if($current){
+        $databaseString .= " --current";
+      }
+      if($predicted){
+        #$databaseString .= " --predicted";
+        my $mostRecentTimestamp = 0;
+        my @mostRecentTimestampQuery = `./get_data.pl --from="01/01/1970" --to="01/01/2016" --current $stockSymbol`;
+        print "generating predictions for next $daysToPredict days after $mostRecentTimestampQuery[-1]";
+        my @output = `./time_series_symbol_project.pl $stockSymbol $daysToPredict AWAIT 200 AR 16`;
+        for(my $i = -$daysToPredict; $i < 0 ; $i++) {
+          print $output[$i];  
+        } 
+        
+      }
 
-    my $databaseString = "";
-    if (! $historical){
-      $databaseString .= "--nohistorical";
-    }
-    if($current){
-      $databaseString .= " --current";
-    }
-    if($predicted){
-      #$databaseString .= " --predicted";
-      my $mostRecentTimestamp = 0;
-      my @mostRecentTimestampQuery = `./get_data.pl --from="01/01/1970" --to="01/01/2016" --current $stockSymbol`;
-      print "generating predictions for next $daysToPredict days after $mostRecentTimestampQuery[-1]";
-      my @output = `./time_series_symbol_project.pl $stockSymbol $daysToPredict AWAIT 200 AR 16`;
-      for(my $i = -$daysToPredict; $i < 0 ; $i++) {
-        print $output[$i];  
-      } 
-      
+      #print "query being run: ./get_data.pl --open --high --low --close --vol --from=\"$startDate\" --to=\"$endDate\" $databaseString $stockSymbol";
+      print `./get_data.pl --open --high --low --close --vol --from="$startDate" --to="$endDate" $databaseString $stockSymbol`; 
+    }else{
+      print "invalid stock";
     }
 
-    #print "query being run: ./get_data.pl --open --high --low --close --vol --from=\"$startDate\" --to=\"$endDate\" $databaseString $stockSymbol";
-    print `./get_data.pl --open --high --low --close --vol --from="$startDate" --to="$endDate" $databaseString $stockSymbol`;
-
-    #my $format = "raw";
-    #my ($str,$error) = getSymbols($stockID,$format);
-    #  if (!$error) {
-    #   if ($format eq "table") { 
-    #     print "<div id=\"symbolDataDiv\">";
-    #     print "<h2>Symbol Data</h2>$str";
-    #     print "</div>";
-    #   } else {
-    #     print $str;
-    #   }
-    #    }
+    
   }
 }
 
@@ -658,25 +679,60 @@ if ($action eq "tradeStock") {
     my $stockAction=param('stockAction');
     my $portfolioID=param('portfolioID');
     my $amount=param('amount');
-    if($stockAction eq "sell"){
-      $amount = 0 - $amount;
-    }
-    if (userHasStockInPortfolio($user, $portfolioID, $symbol)) { 
-      print "$user had ", getStockAmountInPortfolio($user, $portfolioID, $symbol) , "of $symbol in $portfolioID originally";
-      my $error = updateUserStock($amount, $user, $portfolioID, $symbol);
-      if ($error) { 
-           print "Can't update stock because: $error";
-      } else {
-           print "updated stock\n";
-      }
-    }else{
-        my $error = addNewStockToPortfolio($symbol, $portfolioID, $user, $amount);
-        if($error){
-          print "could not add stock to portfolio"
+
+    #getting most recent price
+    my @tmp = `./quote.pl $symbol`;
+    my $price = substr @tmp[9],5;
+    $price = 0 if !defined($price);       
+    my $moneyRequired = $price * $amount;
+    
+    if (userHasPortfolio($user, $portfolioID)){
+      if(ValidStock($symbol)){
+          if($stockAction eq "buy"){
+            my $balance = getCashAmountInPortfolio($user, $portfolioID);
+            if($balance < $moneyRequired){
+                print "<p>you do not have enough balance ($balance) to buy $moneyRequired worth of $symbol</p><br>";
+            }else{
+              if (userHasStockInPortfolio($user, $portfolioID, $symbol)) { 
+                my $error = updateUserStock($amount, $user, $portfolioID, $symbol);
+                if ($error) { print "Can't update stock because: $error"; } 
+                else { print "updated stock\n";}
+              }else{
+                  my $error = addNewStockToPortfolio($symbol, $portfolioID, $user, $amount);
+                  if($error){print "could not add stock to portfolio";}
+                  else{print "successfully added stock to portfolio";}
+              }
+              my $error2 = AddCash($portfolioID, $user, 0-$moneyRequired);
+              if ($error2) { print "Can't update cash because: $error2"; } 
+              else { print "updated cash\n";}
+            }
+          }elsif($stockAction eq "sell"){
+            
+            if (userHasStockInPortfolio($user, $portfolioID, $symbol)) { 
+                my $currentStockAmount = getStockAmountInPortfolio($user, $portfolioID, $symbol);
+                if ($currentStockAmount >= $amount){
+                  print "$user had $currentStockAmount of $symbol in $portfolioID originally";
+                  my $error = updateUserStock(0-$amount, $user, $portfolioID, $symbol);
+                  if ($error) { print "Can't update stock because: $error"; } 
+                  else { print "updated stock\n";}
+                  my $error2 = AddCash($portfolioID, $user, $moneyRequired);
+                  if ($error2) { print "Can't update cash because: $error2"; } 
+                  else { print "updated cash\n";}
+                }else{
+                  print "You don't have enough of that stock to sell";
+                }
+            }else{
+                print "You don't have any of that stock to sell";
+            }
+
+          }
         }else{
-          print "successfully added stock to portfolio"
+          print "invalid stock symbol";
         }
-    }
+      }else{
+        print "invalid portfolio id";
+      }
+    print "<p><a href=\"portfolio.pl?act=viewPortfolio&PortfolioID=$portfolioID\">Return to portfolio</a></p>"; 
     print "<p><a href=\"portfolio.pl?act=base\">Return to main page</a></p>";
 
   }
@@ -715,8 +771,13 @@ if ($action eq "testStrategy") {
     my $initialcash=param('initialcash');
     my $tradingcost=param('tradingcost');
     my $days=param('days');
-    print "instruction being run: ./shannon_ratchet.pl $symbol $initialcash $tradingcost $days", "<br>";
-    print `./shannon_ratchet.pl $symbol $initialcash $tradingcost $days`;
+    if(ValidStock($symbol)){
+      print "instruction being run: ./shannon_ratchet.pl $symbol $initialcash $tradingcost $days", "<br>";
+      print `./shannon_ratchet.pl $symbol $initialcash $tradingcost $days`;
+    }else{
+      print "invalid stock symbol";
+    }
+    
 
 
     print "<p><a href=\"portfolio.pl?act=viewStock&stockID=$symbol\">Return to stock view</a></p>";
@@ -903,28 +964,39 @@ sub userHasStockInPortfolio {
     return $col[0]>0;
   }
 }
+
 sub updateUserStock {
   my ($amnt, $user, $portfolioID, $symbol) = @_;
-  my @rows;
-  my @cash;
+  my @rows;  
   eval {@rows=ExecSQL($dbuser,$dbpasswd, "update shares set amnt = amnt + ? where username=? and portfolioID=? and symbol=?",undef,$amnt, $user,$portfolioID,$symbol);};
-  # update related cash amnt -Yang
-  my @tmp = `./quote.pl $symbol`;
-  my $price = substr @tmp[9],5;       
-  my $money = $price * $amnt;
-  my $balance = ExecSQL($dbuser, $dbpasswd, "select cash from portfolios where username=? and id=?", undef, $user, $portfolioID);
-  if($balance < $money){
-      print "you do not have enough balance";
-      return(undef, $@);
-  }
-  eval{
-      @cash = ExecSQL($dbuser, $dbpasswd, "update portfolios set cash = cash - ? where username=? and id=?", undef, $money, $user, $portfolioID);
-  };
   if ($@) { 
    return (undef,$@);
   } else {
      return (MakeRaw("updated_stock_data","ROW",@rows),$@); 
  }
+}
+
+sub userHasPortfolio {
+  my ($user, $portfolioID) = @_;
+  my @col;
+  eval {@col=ExecSQL($dbuser,$dbpasswd, "select count(*) from portfolios where username=? and id=?","COL",$user,$portfolioID);};
+  if ($@) { 
+    return 0;
+  } else {
+    return $col[0]>0;
+  }
+}
+
+
+sub getCashAmountInPortfolio {
+  my ($user, $portfolioID) = @_;
+  my @col;
+  eval {@col=ExecSQL($dbuser,$dbpasswd, "select cash from portfolios where username=? and id=?", "COL", $user, $portfolioID);};
+  if ($@) { 
+    return 0;
+  } else {
+    return $col[0];
+  }
 }
 
 sub getStockAmountInPortfolio {
@@ -949,12 +1021,21 @@ sub addNewStockToPortfolio {
 
 sub AddCash{
   my ($pfName, $pfUser,$cashAmnt) = @_;
-  
   eval {
-    ExecSQL($dbuser, $dbpasswd, "update portfolios SET cash=? where id=? and username=?", undef,$cashAmnt,$pfName,$pfUser);
+    ExecSQL($dbuser, $dbpasswd, "update portfolios SET cash= cash + ? where id=? and username=?", undef,$cashAmnt,$pfName,$pfUser);
   };
-
   return $@;
+}
+
+sub ValidStock {
+  my ($symbol)=@_;
+  my @col;
+  eval {@col=ExecSQL($dbuser,$dbpasswd, "select count(*) from cs339.stocksdaily where SYMBOL=?","COL",$symbol);};
+  if ($@) { 
+    return 0;
+  } else {
+    return $col[0]>0;
+  }
 }
 
 ################################################################################################
