@@ -49,7 +49,7 @@ use DBI;
 # date strings into the unix epoch time (seconds since 1970)
 #
 use Time::ParseDate;
-
+use Data::Dumper qw(Dumper);
 
 
 #
@@ -479,14 +479,17 @@ if ($action eq "viewPortfolio") {
         @stockIDs = ExecSQL($dbuser, $dbpasswd, "select SYMBOL,AMNT from shares where username=? and portfolioID=?", "COL", $user,$portfolioID);
     };    
     print "<h2>Portfolio ID: $portfolioID</h2>";
-    print "<div class=\"jumbotron\" style=\"background: purple\"> <h3> Stats </h3> ";
+    print "<div class=\"jumbotron\" style=\"background: purple\"> <h3 style=\"color: white\"> Stats </h3> ";
     my @infos =  `./get_info.pl @stockIDs`;
-    for my $info (@infos){
-        print "<p> $info </p>"; 
+    for my $info (@infos[1 .. $#infos]){
+        my @values = split(' ', $info);
+        
+        print "<p style=\"color: white\"> @values[0]     cov: @values[$#values]</p>"; 
     }
     my @covars = `./get_covar.pl @stockIDs`;
-    for my $covar (@covars){
-        print "<p> $covar </p>";
+    print "<p style=\"color: white\"> covar matrix:\n </p>";
+    for my $covar (@covars[4 .. $#covars]){
+        print "<p style=\"color: white\"> $covar </p>";
     }
     print "</div>";
     print "<h3>Cash</h3>";
