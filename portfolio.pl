@@ -495,20 +495,21 @@ if ($action eq "viewPortfolio") {
         @cashAmnt = ExecSQL($dbuser, $dbpasswd, "select cash from portfolios where username=? and ID=?", "ROW", $user, $portfolioID);
      };
      print "<h3>Cash Balance: $cashAmnt[0]</h3>";
-    print "<p><a href=\"portfolio.pl?act=addCash&PortfolioID=$portfolioID\">Add Cash</a></p>";
-    print "<hr>";
-    print "<h3>Stock Holdings</h3>";
-    #print @stockIDs;
-    for my $stockID (@stockIDs){
+     print "<p><a href=\"portfolio.pl?act=addCash&PortfolioID=$portfolioID\">Add Cash</a></p>";
+     print "<p><a href=\"portfolio.pl?act=withdrawCash&PortfolioID=$portfolioID\">Withdraw Cash</a></p>";
+     print "<hr>";
+     print "<h3>Stock Holdings</h3>";
+     #print @stockIDs;
+     for my $stockID (@stockIDs){
         my @queryOutput = `./quote.pl $stockID`;
         my $mostRecentClosePrice = substr $queryOutput[9], 5;
         $mostRecentClosePrice = "could not get most recent stock price" if !defined($mostRecentClosePrice);
       
         print "<p><a href=\"portfolio.pl?act=viewStock&stockID=$stockID&PortfolioID=$portfolioID\"> $stockID &emsp; Amount in Portfolio:", getStockAmountInPortfolio($user, $portfolioID, $stockID), " &emsp; Current Market Value: ", $mostRecentClosePrice,"</a></p>";
-    }
-    print "<p><a href=\"portfolio.pl?act=tradeStock&PortfolioID=$portfolioID\">Add Stock</a></p>";
-    print "<hr>";
-    print "<p><a href=\"portfolio.pl?act=base\">Return to main page</a></p>";
+     }
+     print "<p><a href=\"portfolio.pl?act=tradeStock&PortfolioID=$portfolioID\">Add Stock</a></p>";
+     print "<hr>";
+     print "<p><a href=\"portfolio.pl?act=base\">Return to main page</a></p>";
   }
 
 }
@@ -537,6 +538,43 @@ if ($action eq "addCash") {
         }
         print "<p><a href=\"portfolio.pl?act=viewPortfolio&PortfolioID=$portfolioID\">Return to portfolio</a></p>"; 
     }
+
+}
+if ($action eq "withdrawCash") {
+    my $portfolioID=param('PortfolioID'); 
+    print "<h2>Withdraw cash</h2>";
+    if(!$run){
+        print start_form(-name=>'withdrawCash'), 
+            "Amount ", textfield(-name=>'amount'),
+             p,
+            hidden(-name=>'run',-default=>['1']),
+            hidden(-name=>'act',-default=>['withdrawCash']),
+            hidden(-name=>'PortfolioID',-default=>$portfolioID),
+            submit,
+            end_form,
+            hr;
+    }else{
+        my $cashWd = param('amount');
+        my @cashAmnt;
+        eval{
+            @cashAmnt = ExecSQL($dbuser, $dbpasswd, "select cash from portfolios where username=? and ID=?", "ROW", $user, $portfolioID);
+         };
+        print "<h3>Cash Balance: $cashAmnt[0]</h3>";
+        if($cashAmnt[0] < $cashWd){
+            print "<p> you do not have enough balance </p>"; 
+            print "<p><a href=\"portfolio.pl?act=viewPortfolio&PortfolioID=$portfolioID\">Return to portfolio</a></p>";
+        }else{
+            $cashWd = 0 - $cashWd;
+            my $addError = AddCash($portfolioID, $user, $cashWd);
+            if(!$addError){
+                print "<p>success!</p>";
+                print $portfolioID;
+            }else{
+            print $addError;
+            }
+            print "<p><a href=\"portfolio.pl?act=viewPortfolio&PortfolioID=$portfolioID\">Return to portfolio</a></p>"; 
+        }
+     }
 
 }
 
