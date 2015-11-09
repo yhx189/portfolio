@@ -251,7 +251,7 @@ print "<head>";
 print "<title>Portfolio</title>";
 print "</head>";
 
-print "<body style=\"height:100\%;margin:0\">";
+print "<body style=\"height:100\%;margin:0;  background-color: #fdf6e3;;\">";
 
 #
 # Force device width, for mobile phones, etc
@@ -268,7 +268,7 @@ print "<!-- Latest compiled and minified CSS -->
 <script src=\"https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js\"></script>
 <!-- Latest compiled JavaScript -->
 <script src=\"http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js\"></script>";
-print "<center>" if !$debug;  
+#print "<center>" if !$debug;  
 
 print "<center>" if !$debug;
 
@@ -328,8 +328,27 @@ if ($action eq "base") {
   print "<script src=\"http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js\" type=\"text/javascript\"></script>";
 
   print "<script type=\"text/javascript\" src=\"portfolio.js\"> </script>";
-
-  #
+  
+  
+  #my @markets = ExecSQL($dbuser, $dbpasswd, "select timestamp,close  from cs339.StocksDaily where symbol=?", "COL", 'AAPL');
+  
+  #print @markets[1];
+  #for my $market (@markets){
+  # eval{
+  #    my @values = split(' ', $market);  
+  #   print  @values[1];
+  #   ExecSQL($dbuser, $dbpasswd, "insert into market(timestamp,close) values(?,?) ", "COL", $market,0 ); 
+  #};
+  #}
+   my @markets = ExecSQL($dbuser, $dbpasswd, "select timestamp,close  from cs339.StocksDaily where symbol=?", undef, 'AAPL');
+  
+  print @{@markets[0]}[1];
+  for my $market (@markets){
+  eval{
+     ExecSQL($dbuser, $dbpasswd, "update market set close=close+? where timestamp=?", "COL", @{$market}[1],@{$market}[0] ); 
+  };
+  }
+#
   # And a div to populate with info about nearby stuff
   #
   #
@@ -476,6 +495,7 @@ if ($action eq "viewPortfolio") {
     my $portfolioID=param('PortfolioID');
     my @stockIDs;
     eval{
+        #TODO add new stock data
         @stockIDs = ExecSQL($dbuser, $dbpasswd, "select SYMBOL,AMNT from shares where username=? and portfolioID=?", "COL", $user,$portfolioID);
     };    
     print "<h2>Portfolio ID: $portfolioID</h2>";
@@ -484,7 +504,7 @@ if ($action eq "viewPortfolio") {
     for my $info (@infos[1 .. $#infos]){
         my @values = split(' ', $info);
         
-        print "<p style=\"color: white\"> @values[0]     cov: @values[$#values]</p>"; 
+        print "<p style=\"color: white\"> @values[0]   Beta:    cov: @values[$#values]</p>"; 
     }
     my @covars = `./get_covar.pl @stockIDs`;
     print "<p style=\"color: white\"> covar matrix:\n </p>";
@@ -754,6 +774,11 @@ if ($action eq "tradeStock") {
                 if ($currentStockAmount >= $amount){
                   print "$user had $currentStockAmount of $symbol in $portfolioID originally";
                   my $error = updateUserStock(0-$amount, $user, $portfolioID, $symbol);
+                  if($currentStockAmount == $amount){
+                    eval {
+                        ExecSQL($dbuser,$dbpasswd,"delete from shares where username=? and portfolioID=? and symbol=?", undef,$user,$portfolioID,$symbol);
+                    };
+                  }
                   if ($error) { print "Can't update stock because: $error"; } 
                   else { print "updated stock\n";}
                   my $error2 = AddCash($portfolioID, $user, $moneyRequired);

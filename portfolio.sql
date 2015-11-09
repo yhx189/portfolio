@@ -85,6 +85,10 @@ create table predictedStockData(
     primary key(symbol,timestamp)
 );
 
-
+create table market(
+    timestamp number not null,
+    close number not null,
+    primary key(timestamp)
+);
 
 quit;
