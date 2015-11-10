@@ -38,6 +38,7 @@ $predicted=0;
 if (defined $from) { $from=parsedate($from); }
 if (defined $to) { $to=parsedate($to); }
 
+#print "FROM: $from";
 
 $usage = "usage: get_data.pl [--open] [--high] [--low] [--close] [--vol] [--from=time] [--to=time] [--plot] [--nohistorical] [--current] [--predicted] SYMBOL\n";
 
@@ -58,6 +59,7 @@ my $sql;
 if(!$nohistorical){
   $sql = "select " . join(",",@fields) . " from ".GetStockPrefix()."StocksDaily";
   $sql.= " where symbol = '$symbol'";
+  $sql.= " and timestamp IS NOT NULL";
   $sql.= " and timestamp >= $from" if $from;
   $sql.= " and timestamp <= $to" if $to;
 }
@@ -67,6 +69,7 @@ if (!$nohistorical && $current){
 if($current){
   $sql .= "select " . join(",",@fields) . " from newStockData";
   $sql.= " where symbol = '$symbol'";
+  $sql.= " and timestamp IS NOT NULL";
   $sql.= " and timestamp >= $from" if $from;
   $sql.= " and timestamp <= $to" if $to;
 }
@@ -89,18 +92,6 @@ my $data = ExecStockSQL("TEXT",$sql);
 
 if (!$plot) { 
   print $data;
-} else {
-
-  open(DATA,">_plot.in") or die "Cannot open temporary file for plotting\n";
-  print DATA $data;
-  close(DATA);
-
-  open(GNUPLOT, "|gnuplot") or die "Cannot open gnuplot for plotting\n";
-  GNUPLOT->autoflush(1);
-  print GNUPLOT "set title '$symbol'\nset xlabel 'time'\nset ylabel 'data'\n";
-  print GNUPLOT "plot '_plot.in' with linespoints;\n";
-  STDIN->autoflush(1);
-  <STDIN>;
 }
 
 

@@ -12,6 +12,7 @@ $(document).ready(function() {
 });
 
 
+
 //
 // NewData is called by the browser after any request
 // for data we have initiated completes
@@ -106,7 +107,20 @@ function displayGraph(){
 		endDate.setFullYear(endDate.getFullYear() + 5);
 		break;
 	}
+        var today = new Date();
+	var dd = today.getDate();
+	var mm = today.getMonth()+1; //January is 0!
+	var yyyy = today.getFullYear();
 
+	if(dd<10) {
+	    dd='0'+dd
+	} 
+
+	if(mm<10) {
+	    mm='0'+mm
+	} 
+
+	today = mm+'/'+dd+'/'+yyyy;
 	var endDay = endDate.getDate();
 	var endMonth = endDate.getMonth()+1;
 	var endYear = endDate.getFullYear();
@@ -123,7 +137,7 @@ function displayGraph(){
 			current : current,
 			predicted : predicted,
 			startDate : startDateString,
-			endDate : endDateString,
+			endDate : today,
 			daysToPredict : daysToPredict
 		}, callBackAfterGettingStockData);
 

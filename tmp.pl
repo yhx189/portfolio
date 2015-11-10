@@ -49,7 +49,6 @@ use DBI;
 # date strings into the unix epoch time (seconds since 1970)
 #
 use Time::ParseDate;
-use Data::Dumper qw(Dumper);
 
 
 #
@@ -251,7 +250,7 @@ print "<head>";
 print "<title>Portfolio</title>";
 print "</head>";
 
-print "<body style=\"height:100\%;margin:0;  background-color: #fdf6e3;;\">";
+print "<body style=\"height:100\%;margin:0\">";
 
 #
 # Force device width, for mobile phones, etc
@@ -267,10 +266,8 @@ print "<!-- Latest compiled and minified CSS -->
 <!-- jQuery library -->
 <script src=\"https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js\"></script>
 <!-- Latest compiled JavaScript -->
-<script src=\"http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js\"></script>
-<script src=\"Chart.js\"></script>
-";
-#print "<center>" if !$debug;  
+<script src=\"http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js\"></script><script src=\"Chart.js\"></script>";
+print "<center>" if !$debug;  
 
 print "<center>" if !$debug;
 
@@ -330,27 +327,7 @@ if ($action eq "base") {
   print "<script src=\"http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js\" type=\"text/javascript\"></script>";
 
   print "<script type=\"text/javascript\" src=\"portfolio.js\"> </script>";
-  
-  ## used to add beta data
-  #my @markets = ExecSQL($dbuser, $dbpasswd, "select timestamp,close  from cs339.StocksDaily where symbol=?", "COL", 'AAPL');
-  
-  #print @markets[1];
-  #for my $market (@markets){
-  # eval{
-  #    my @values = split(' ', $market);  
-  #   print  @values[1];
-  #   ExecSQL($dbuser, $dbpasswd, "insert into market(timestamp,close) values(?,?) ", "COL", $market,0 ); 
-  #};
-  #}
-  #my @markets = ExecSQL($dbuser, $dbpasswd, "select timestamp,close  from cs339.StocksDaily where symbol=?", undef, 'INTC');
-  #print @{@markets[0]}[1];
-  #for my $market (@markets){
-  #eval{
-  #  ExecSQL($dbuser, $dbpasswd, "update market set close=close+? where timestamp=?", "COL", @{$market}[1],@{$market}[0] ); 
-  #};
-  #}
-  
-  
+
   #
   # And a div to populate with info about nearby stuff
   #
@@ -445,7 +422,8 @@ if ($action eq "addStockInfo"){
               if ($error) { 
                 print "Can't add stock info because: $error";
               } else {
-                print "Added stock info for $symbol\n";
+                # print "Added stock info for $symbol\n";
+		print "."
               }
           }
         }else{
@@ -498,39 +476,25 @@ if ($action eq "viewPortfolio") {
     my $portfolioID=param('PortfolioID');
     my @stockIDs;
     eval{
-        #TODO add new stock data
         @stockIDs = ExecSQL($dbuser, $dbpasswd, "select SYMBOL,AMNT from shares where username=? and portfolioID=?", "COL", $user,$portfolioID);
     };    
     print "<h2>Portfolio ID: $portfolioID</h2>";
-    print "<div class=\"jumbotron\" style=\"background: purple\"> <h3 style=\"color: white\"> Stats </h3> ";
-    
+    print "<div class=\"jumbotron\" style=\"background: purple\"> <h3> Stats </h3> ";
     my @infos =  `./get_info.pl @stockIDs`;
-    my $c = 0;
-    my @infoTab;
-    for my $info(@infos){
-        my @temp = split / /, $info;  
-        for (my $i=0; $i <= 0+@temp-1; $i++){ 
-            $infoTab[$c][$i] = $temp[$i] 
-        }
-        
-        my @beta = `./get_beta.pl $temp[0]`;
-        my $tmp =  substr @beta[7], 6;
-        $infoTab[$c][@temp] = $tmp;
-        $c = $c + 1;
-    }
-
-    print MakeTable("port_info", "2D", ["symbol", "field", "num", "mean","std", "min","max","COV", "BETA"], @infoTab);
-
-    #for my $info (@infos[1 .. $#infos]){
-    #    my @values = split(' ', $info);
-    #   my @beta = `./get_beta.pl @values[0]`;  
-    #   my $tmp =  substr @beta[7], 6;
-    #   print "<p style=\"color: white\"> @values[0]   Beta: $tmp    cov: @values[$#values]</p>"; 
-    #}
+	#print @infos;
+	my $c = 0;
+	my @infoTab;
+	for my $info (@infos){
+		my @temp = split / /, $info;
+	        for (my $i=0; $i <= 0+@temp-1; $i++){
+		$infoTab[$c][$i] = $temp[$i]
+		}
+		$c = $c+1;
+	}
+        print MakeTable("port_info", "2D", ["symbol", "field", "num", "mean","std", "min", "max", "CV"], @infoTab); 
     my @covars = `./get_covar.pl @stockIDs`;
-    print "<p style=\"color: white\"> covar matrix:\n </p>";
-    for my $covar (@covars[4 .. $#covars]){
-        print "<p style=\"color: white\"> $covar </p>";
+    for my $covar (@covars){
+        print "<p> $covar </p>";
     }
     print "</div>";
     print "<h3>Cash</h3>";
@@ -538,48 +502,48 @@ if ($action eq "viewPortfolio") {
     eval{
         @cashAmnt = ExecSQL($dbuser, $dbpasswd, "select cash from portfolios where username=? and ID=?", "ROW", $user, $portfolioID);
      };
-     print "<h3>Cash Balance: $cashAmnt[0]</h3>";
-     print "<p><a href=\"portfolio.pl?act=addCash&PortfolioID=$portfolioID\">Add Cash</a></p>";
-     print "<p><a href=\"portfolio.pl?act=withdrawCash&PortfolioID=$portfolioID\">Withdraw Cash</a></p>";
-     print "<hr>";
-     print "<h3>Stock Holdings</h3>";
-     #print @stockIDs;
-     my $stockVal = 0;
-     for my $stockID (@stockIDs){
-        print "aaa";
+     print "<h3>Cash Balance: \$$cashAmnt[0]</h3>";
+    print "<p><a href=\"portfolio.pl?act=addCash&PortfolioID=$portfolioID\">Add Cash</a></p>";
+    print "<hr>";
+    print "<h3>Stock Holdings</h3>";
+    #print @stockIDs;
+	my $stockVal = 0;
+	#print "<hr>";
+    for my $stockID (@stockIDs){
         my @queryOutput = `./quote.pl $stockID`;
-        my $vol = substr $queryOutput[8], 7;     
+	#print @queryOutput;
+	my $vol = substr $queryOutput[8], 7;
+	#print $vol;
         my $mostRecentClosePrice = substr $queryOutput[9], 5;
         $mostRecentClosePrice = "could not get most recent stock price" if !defined($mostRecentClosePrice);
-        my $lastClose = substr $queryOutput[6], 5;
-        my $diff = ($mostRecentClosePrice - $lastClose);
-        my $per = 100*((abs $diff)/$lastClose);
-        $per = sprintf("%.2f", $per);
-        $diff = sprintf("%.2f", $diff);
-        my $sign;
-        my $color="blue";
-        if ($diff<0){
-        $sign="-";
-        $color="red";
-         }
-        else{
-            $sign = "+";
-            $color="green";
-        }
+	my $lastClose = substr $queryOutput[6], 5;
+      my $diff = ($mostRecentClosePrice - $lastClose);
+	my $per = 100*((abs $diff)/$lastClose);
+	$per = sprintf("%.2f", $per);
+	$diff = sprintf("%.2f", $diff);
+	my $sign;
+	my $color="blue";
+	if ($diff<0){
+	$sign="-";
+	$color="red";
+	}
+	else{
+	$sign = "+";
+	$color="green";
+	}
         print "<p><a style=\"color : $color\" href=\"portfolio.pl?act=viewStock&stockID=$stockID&PortfolioID=$portfolioID\"> $stockID &emsp; Shares Owned:", getStockAmountInPortfolio($user, $portfolioID, $stockID), " &emsp; Current Share Price: ", $mostRecentClosePrice, " $sign", (abs $diff), " ($per%)</a></p>";
-        $stockVal = $stockVal + $mostRecentClosePrice*getStockAmountInPortfolio($user, $portfolioID, $stockID);
-        print "<p><b>Volume:</b> $vol";
-        print "<b>Market Cap:</b> ".($vol*$mostRecentClosePrice)."</p>";
-    #print "<hr>";
-        }
+	$stockVal = $stockVal + $mostRecentClosePrice*getStockAmountInPortfolio($user, $portfolioID, $stockID);
+	print "<p><b>Volume:</b> $vol";
+	print "<b>Market Cap:</b> ".($vol*$mostRecentClosePrice)."</p>";
+	#print "<hr>";
+    }
     print "<p><a href=\"portfolio.pl?act=tradeStock&PortfolioID=$portfolioID\">Add Stock</a></p>";
     print "<hr>";
-    print "<h3>Total Portfolio Value<h3>";
-    my $totVal = $cashAmnt[0] + $stockVal;
-    print "<h3> \$$totVal <h3>";
-    print "<hr>";
+	print "<h3>Total Portfolio Value<h3>";
+	my $totVal = $cashAmnt[0] + $stockVal;
+	print "<h3> \$$totVal <h3>";
+	print "<hr>";
     print "<p><a href=\"portfolio.pl?act=base\">Return to main page</a></p>";
-  
   }
 
 }
@@ -608,43 +572,6 @@ if ($action eq "addCash") {
         }
         print "<p><a href=\"portfolio.pl?act=viewPortfolio&PortfolioID=$portfolioID\">Return to portfolio</a></p>"; 
     }
-
-}
-if ($action eq "withdrawCash") {
-    my $portfolioID=param('PortfolioID'); 
-    print "<h2>Withdraw cash</h2>";
-    if(!$run){
-        print start_form(-name=>'withdrawCash'), 
-            "Amount ", textfield(-name=>'amount'),
-             p,
-            hidden(-name=>'run',-default=>['1']),
-            hidden(-name=>'act',-default=>['withdrawCash']),
-            hidden(-name=>'PortfolioID',-default=>$portfolioID),
-            submit,
-            end_form,
-            hr;
-    }else{
-        my $cashWd = param('amount');
-        my @cashAmnt;
-        eval{
-            @cashAmnt = ExecSQL($dbuser, $dbpasswd, "select cash from portfolios where username=? and ID=?", "ROW", $user, $portfolioID);
-         };
-        print "<h3>Cash Balance: $cashAmnt[0]</h3>";
-        if($cashAmnt[0] < $cashWd){
-            print "<p> you do not have enough balance </p>"; 
-            print "<p><a href=\"portfolio.pl?act=viewPortfolio&PortfolioID=$portfolioID\">Return to portfolio</a></p>";
-        }else{
-            $cashWd = 0 - $cashWd;
-            my $addError = AddCash($portfolioID, $user, $cashWd);
-            if(!$addError){
-                print "<p>success!</p>";
-                print $portfolioID;
-            }else{
-            print $addError;
-            }
-            print "<p><a href=\"portfolio.pl?act=viewPortfolio&PortfolioID=$portfolioID\">Return to portfolio</a></p>"; 
-        }
-     }
 
 }
 
@@ -681,7 +608,7 @@ if ($action eq "viewStock") {
     <label><input type=\"checkbox\" onClick=\"displayGraph()\" name=\"Added\" value=\"Current\" checked>Current (<a href=\"portfolio.pl?act=addStockInfo\">Add if not found</a>)</label><br>
     <label><input type=\"checkbox\" onClick=\"displayGraph()\" name=\"Predicted\" value=\"Predicted\">Predicted (May take a while to load)</label><br>";
     print "Days to predict:", "<input type=\"number\" id=\"daysToPredict\" value =\"5\"><br>";
-    print "<input onClick=\"displayGraph()\" type=\"submit\"></input>";
+	print "<input onClick=\"displayGraph()\" type=\"submit\"></input>";
     print "<div id=\"chartdata\"></div>";
 
 
@@ -732,11 +659,11 @@ if ($action eq "viewStock") {
         #$databaseString .= " --predicted";
         my $mostRecentTimestamp = 0;
         my @mostRecentTimestampQuery = `./get_data.pl --from="$startDate" --to="01/01/2016" $databaseString $stockSymbol`;
-    if($predicted){
+	if($predicted){
         #print "generating predictions for next $daysToPredict days after ";
         my @output = `./time_series_symbol_project.pl $stockSymbol $daysToPredict AWAIT 200 AR 16`;
         for(my $i = -$daysToPredict; $i < 0 ; $i++) {
-      $predict .= $output[$i];
+	  $predict .= $output[$i];
           #print $output[$i];  
         } 
         
@@ -744,75 +671,75 @@ if ($action eq "viewStock") {
 
       #print "query being run: ./get_data.pl --open --high --low --close --vol --from=\"$startDate\" --to=\"$endDate\" $databaseString $stockSymbol";
       #my $type = "plot";
-    print "<canvas id=\"myChart\" width=\"600\" height=\"400\"></canvas>";
+	print "<canvas id=\"myChart\" width=\"600\" height=\"400\"></canvas>";
 
-    my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = localtime($mostRecentTimestampQuery[-1]);
-    my $recentDate = ($mon+1)."/$mday/".($year+1900); 
-    my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = localtime($mostRecentTimestampQuery[0]);
-    my $oldestDate = ($mon+1)."/$mday/".($year+1900); 
-    
-    my $bigTable = `./get_data.pl --open --high --low --close --vol --from="$startDate" --to="$recentDate" $databaseString $stockSymbol`;
-    
-    my $closes = `./get_data.pl --notime --close --from="$startDate" --to="$recentDate" $databaseString $stockSymbol`;
-    # print $closes;
-    #print "ST2: $startDate";
-    $closes =~ s/\n/ /g;
-    $predict =~ s/\n/ /g;
+	my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = localtime($mostRecentTimestampQuery[-1]);
+	my $recentDate = ($mon+1)."/$mday/".($year+1900); 
+	my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = localtime($mostRecentTimestampQuery[0]);
+	my $oldestDate = ($mon+1)."/$mday/".($year+1900); 
+	
+	my $bigTable = `./get_data.pl --open --high --low --close --vol --from="$startDate" --to="$recentDate" $databaseString $stockSymbol`;
+	
+	my $closes = `./get_data.pl --notime --close --from="$startDate" --to="$recentDate" $databaseString $stockSymbol`;
+	# print $closes;
+	#print "ST2: $startDate";
+	$closes =~ s/\n/ /g;
+	$predict =~ s/\n/ /g;
         #print $closes;
-    print "<script> 
-    var ctx = document.getElementById(\"myChart\").getContext(\"2d\");
-    var closes = \"$closes\";
-    closes = closes.trim().split(\" \");
-    //console.log(closes);
-    //console.log(\"\");
-    var labels = [];
-    var predict = \"$predict\";
-    var addN = (predict) ? $daysToPredict : 0;
-    for(i=0;i<closes.length+addN;i++){
-    labels.push('');
-    }
-    labels[0]= \"$oldestDate\";
-    labels[closes.length-1] =\"$recentDate\";
+	print "<script> 
+	var ctx = document.getElementById(\"myChart\").getContext(\"2d\");
+	var closes = \"$closes\";
+	closes = closes.trim().split(\" \");
+	//console.log(closes);
+	//console.log(\"\");
+	var labels = [];
+	var predict = \"$predict\";
+	var addN = (predict) ? $daysToPredict : 0;
+	for(i=0;i<closes.length+addN;i++){
+	labels.push('');
+	}
+	labels[0]= \"$oldestDate\";
+	labels[closes.length-1] =\"$recentDate\";
 
-    if(predict){
-    predict = predict.trim().split(\" \");
-    for(i=0; i<predict.length;i++){
-    var temp = predict[i].split(\"      \");
-    predict[i]=temp[2];
-    } 
-    predict = closes.concat(predict);
-    }
-    var data = {
+	if(predict){
+	predict = predict.trim().split(\" \");
+	for(i=0; i<predict.length;i++){
+	var temp = predict[i].split(\"	\");
+	predict[i]=temp[2];
+	} 
+	predict = closes.concat(predict);
+	}
+	var data = {
     labels: labels,
     datasets: [
         {
             data: closes
         },
-    {
-        fillColor: \"rgba(151,187,205,0.2)\",
-        data: predict
-    }
+	{
+	    fillColor: \"rgba(151,187,205,0.2)\",
+	    data: predict
+	}
     ]
 };
-    var myLineChart = new Chart(ctx).Line(data, {showTooltips: false, animation: false});
-    </script>";
+	var myLineChart = new Chart(ctx).Line(data, {showTooltips: false, animation: false});
+	</script>";
       #print `./plot_stock.pl $type $stockSymbol`;
       #open FILE, ">./plot.png" or die $!;
       #print FILE $graphPNG;
       #close FILE;
-    #print "<img src='plot.png'/>"
-    my @bigs = split /\s/, $bigTable;
-    #@bigs = reverse @bigs;
-    my $num = scalar @bigs;
-    my @bigTab;
-    for (my $c=0; $c<$num/6; $c++){
-    for (my $i=0; $i < 6; $i++){
-        $bigTab[$c][$i] = $bigs[$i+$c*6]
-        }
-        #@bigTab[$c] = reverse @bigTab[$c];
-    }
+	#print "<img src='plot.png'/>"
+	my @bigs = split /\s/, $bigTable;
+	#@bigs = reverse @bigs;
+	my $num = scalar @bigs;
+	my @bigTab;
+	for (my $c=0; $c<$num/6; $c++){
+	for (my $i=0; $i < 6; $i++){
+		$bigTab[$c][$i] = $bigs[$i+$c*6]
+		}
+		#@bigTab[$c] = reverse @bigTab[$c];
+	}
         print MakeTable("stock_info", "2D", ["timestamp", "open", "high", "low", "close", "volume"], @bigTab); 
-    
+	
     }else{
       print "invalid stock";
     }
@@ -820,7 +747,6 @@ if ($action eq "viewStock") {
     
   }
 }
-
 
 
 
@@ -897,11 +823,6 @@ if ($action eq "tradeStock") {
                 if ($currentStockAmount >= $amount){
                   print "$user had $currentStockAmount of $symbol in $portfolioID originally";
                   my $error = updateUserStock(0-$amount, $user, $portfolioID, $symbol);
-                  if($currentStockAmount == $amount){
-                    eval {
-                        ExecSQL($dbuser,$dbpasswd,"delete from shares where username=? and portfolioID=? and symbol=?", undef,$user,$portfolioID,$symbol);
-                    };
-                  }
                   if ($error) { print "Can't update stock because: $error"; } 
                   else { print "updated stock\n";}
                   my $error2 = AddCash($portfolioID, $user, $moneyRequired);
